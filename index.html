@@ -1,348 +1,40 @@
 <!DOCTYPE html>
-<html lang="tr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-
-<title>Araba Oyunu</title>
-
+<html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>2D Araba Oyunu</title>
 <style>
-
-html,body{
-margin:0;
-overflow:hidden;
-background:#222;
-touch-action:none;
-}
-
-canvas{
-display:block;
-background:#5f5f5f;
-}
-
-#ui{
-position:absolute;
-top:10px;
-left:10px;
-color:white;
-font-size:24px;
-font-family:Arial;
-font-weight:bold;
-z-index:5;
-text-shadow:2px 2px 5px black;
-}
-
-#gameover{
-
-position:absolute;
-top:50%;
-left:50%;
-transform:translate(-50%,-50%);
-display:none;
-text-align:center;
-color:white;
-font-family:Arial;
-z-index:10;
-
-}
-
-button{
-
-padding:15px 35px;
-font-size:22px;
-border:none;
-border-radius:10px;
-background:#27ae60;
-color:white;
-
-}
-
-h1{
-
-margin-bottom:20px;
-
-}
-
-</style>
-
-</head>
-<body>
-
-<div id="ui">
-
-Skor :
-<span id="score">0</span>
-
-<br>
-
-Rekor :
-<span id="record">0</span>
-
-</div>
-
-<div id="gameover">
-
-<h1>OYUN BİTTİ</h1>
-
-<button onclick="restart()">Yeniden Başla</button>
-
-</div>
-
-<canvas id="game"></canvas>
-
+html,body{margin:0;overflow:hidden;background:#222;font-family:Arial}
+canvas{display:block;touch-action:none}
+#menu,#gameover,#count{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;background:rgba(0,0,0,.45)}
+#gameover,#count{display:none}button{padding:14px 28px;font-size:22px}
+#hud{position:absolute;top:10px;left:10px;color:#fff;font-size:22px}
+</style></head><body>
+<div id=hud>Skor <span id=s>0</span><br>Rekor <span id=r>0</span></div>
+<div id=menu><h1>2D Araba Oyunu</h1><button onclick="startGame()">Başla</button></div>
+<div id=count><h1 id=ct>3</h1></div>
+<div id=gameover><h1>Oyun Bitti</h1><button onclick="location.reload()">Yeniden Başla</button></div>
+<canvas id=c></canvas>
 <script>
-
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
-
-function resize(){
-
-canvas.width=innerWidth;
-canvas.height=innerHeight;
-
-}
-
-resize();
-
-addEventListener("resize",resize);
-
-const carImg=new Image();
-carImg.src="yesil.png";
-
-const engelImg=new Image();
-engelImg.src="engel.png";
-
-let roadWidth=300;
-
-let car={
-x:innerWidth/2-35,
-y:innerHeight-140,
-w:70,
-h:110
-};
-
-let obstacles=[];
-
-let score=0;
-
-let record=localStorage.getItem("record")||0;
-
-document.getElementById("record").innerHTML=record;
-
-let gameOver=false;
-
-let lastSpawn=0;
-
-let startTime=Date.now();
-
-let roadOffset=0;
-
-function spawn(){
-
-let x=(innerWidth-roadWidth)/2+
-Math.random()*(roadWidth-60);
-
-obstacles.push({
-
-x:x,
-y:-120,
-w:60,
-h:90
-
-});
-
-}
-
-function update(){
-
-if(gameOver)return;
-
-score=Math.floor((Date.now()-startTime)/1000);
-
-document.getElementById("score").innerHTML=score;
-
-roadOffset+=8;
-
-if(Date.now()-lastSpawn>900){
-
-spawn();
-
-lastSpawn=Date.now();
-
-}
-
-for(let i=obstacles.length-1;i>=0;i--){
-
-let o=obstacles[i];
-
-o.y+=10;
-
-if(
-
-car.x<o.x+o.w&&
-car.x+car.w>o.x&&
-car.y<o.y+o.h&&
-car.y+car.h>o.y
-
-){
-
-gameOver=true;
-
-document.getElementById("gameover").style.display="block";
-
-if(score>record){
-
-record=score;
-
-localStorage.setItem("record",record);
-
-document.getElementById("record").innerHTML=record;
-
-}
-
-}
-
-if(o.y>innerHeight+100){
-
-obstacles.splice(i,1);
-
-}
-
-}
-
-}
-
-function drawRoad(){
-
-ctx.fillStyle="#444";
-
-ctx.fillRect((innerWidth-roadWidth)/2,0,roadWidth,innerHeight);
-
-ctx.strokeStyle="white";
-
-ctx.lineWidth=8;
-
-ctx.setLineDash([40,30]);
-
-ctx.lineDashOffset=roadOffset;
-
-ctx.beginPath();
-
-ctx.moveTo(innerWidth/2,0);
-
-ctx.lineTo(innerWidth/2,innerHeight);
-
-ctx.stroke();
-
-ctx.setLineDash([]);
-
-}
-
-function draw(){
-
-ctx.clearRect(0,0,canvas.width,canvas.height);
-
-drawRoad();
-
-ctx.drawImage(carImg,car.x,car.y,car.w,car.h);
-
-for(let o of obstacles){
-
-ctx.drawImage(engelImg,o.x,o.y,o.w,o.h);
-
-}
-
-}
-
+const cv=c,ctx=cv.getContext('2d');function rs(){cv.width=innerWidth;cv.height=innerHeight}onresize=rs;rs();
+let rec=+localStorage.record||0;r.textContent=rec;
+let car=new Image();car.src='yesil.png';let obsimg=new Image();obsimg.src='engel.png';
+let started=false,over=false,t0,speed=4,road=320,px=cv.width/2,obs=[];
+function startGame(){menu.style.display='none';count.style.display='flex';let n=3;ct.textContent=n;let i=setInterval(()=>{n--;if(n){ct.textContent=n}else{clearInterval(i);count.style.display='none';started=true;t0=Date.now();loop();}},1000)}
+function spawn(){obs.push({x:(cv.width-road)/2+20+Math.random()*(road-60),y:-90})}
+let last=0;
 function loop(){
-
-update();
-
-draw();
-
-requestAnimationFrame(loop);
-
+ if(!started||over)return;
+ requestAnimationFrame(loop);
+ let sec=(Date.now()-t0)/1000;s.textContent=Math.floor(sec);
+ speed=Math.min(4+sec*0.15,18);
+ ctx.fillStyle="#2b8a3e";ctx.fillRect(0,0,cv.width,cv.height);
+ ctx.fillStyle="#555";ctx.fillRect((cv.width-road)/2,0,road,cv.height);
+ ctx.strokeStyle="#fff";ctx.setLineDash([30,20]);ctx.lineDashOffset=-sec*speed*30;ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(cv.width/2,0);ctx.lineTo(cv.width/2,cv.height);ctx.stroke();ctx.setLineDash([]);
+ if(Date.now()-last>Math.max(250,900-sec*10)){spawn();last=Date.now();}
+ for(let i=obs.length-1;i>=0;i--){let o=obs[i];o.y+=speed+4;ctx.drawImage(obsimg,o.x,o.y,50,80);
+ if(px<o.x+50&&px+60>o.x&&cv.height-140<o.y+80&&cv.height-40>o.y){over=true;gameover.style.display='flex';if(Math.floor(sec)>rec){localStorage.record=Math.floor(sec);}}
+ if(o.y>cv.height+100)obs.splice(i,1);}
+ ctx.drawImage(car,px,cv.height-140,60,100);
 }
-
-loop();
-
-let dragging=false;
-
-function move(px){
-
-let left=(innerWidth-roadWidth)/2;
-
-let right=left+roadWidth-car.w;
-
-car.x=px-car.w/2;
-
-if(car.x<left)car.x=left;
-
-if(car.x>right)car.x=right;
-
-}
-
-canvas.addEventListener("touchstart",e=>{
-
-dragging=true;
-
-move(e.touches[0].clientX);
-
-});
-
-canvas.addEventListener("touchmove",e=>{
-
-if(!dragging)return;
-
-move(e.touches[0].clientX);
-
-});
-
-canvas.addEventListener("touchend",()=>{
-
-dragging=false;
-
-});
-
-canvas.addEventListener("mousedown",e=>{
-
-dragging=true;
-
-move(e.clientX);
-
-});
-
-canvas.addEventListener("mousemove",e=>{
-
-if(!dragging)return;
-
-move(e.clientX);
-
-});
-
-canvas.addEventListener("mouseup",()=>{
-
-dragging=false;
-
-});
-
-function restart(){
-
-obstacles=[];
-
-score=0;
-
-startTime=Date.now();
-
-gameOver=false;
-
-document.getElementById("gameover").style.display="none";
-
-car.x=innerWidth/2-car.w/2;
-
-}
-
-</script>
-
-</body>
-</html>
+function mv(x){let l=(cv.width-road)/2,r=l+road-60;px=Math.max(l,Math.min(r,x-30));}
+cv.onpointerdown=e=>mv(e.clientX);cv.onpointermove=e=>{if(e.buttons||e.pressure)mv(e.clientX);}
+</script></body></html>
