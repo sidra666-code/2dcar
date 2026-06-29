@@ -33,6 +33,10 @@
     const menu = document.getElementById('menu');
     const actionBtn = document.getElementById('actionBtn');
 
+    // Müzik tanımlaması
+    const bgMusic = new Audio('ses.mp3');
+    bgMusic.loop = true;
+
     const carImg = new Image(); carImg.src = 'yesil.png';
     const obsImg = new Image(); obsImg.src = 'engel.png';
     
@@ -42,7 +46,6 @@
         highScore: localStorage.getItem('rekor') || 0,
         speed: 300,
         laneOffset: 0,
-        // Boyutlar orijinalin 2.5 katı olarak güncellendi (50*2.5=125, 80*2.5=200)
         car: { x: 0, y: 0, w: 125, h: 200 }, 
         obstacles: [],
         lastTime: 0,
@@ -61,6 +64,11 @@
             this.obstacles = [];
             this.active = true;
             menu.style.display = 'none';
+            
+            // Müziği başlat
+            bgMusic.currentTime = 0;
+            bgMusic.play().catch(e => console.log("Müzik başlatılamadı:", e));
+            
             this.lastTime = performance.now();
             requestAnimationFrame((t) => this.loop(t));
         },
@@ -91,14 +99,12 @@
             this.spawnTimer += dt;
 
             if (this.spawnTimer > 1.2) {
-                // Engel boyutu araba ile uyumlu hale getirildi (125x125)
                 this.obstacles.push({ x: Math.random() * (canvas.width - 125), y: -200, w: 125, h: 125 });
                 this.spawnTimer = 0;
             }
 
             this.drawRoad(dt);
 
-            // Araba
             ctx.save();
             ctx.translate(this.car.x + this.car.w / 2, this.car.y + this.car.h / 2);
             ctx.rotate(Math.PI);
@@ -106,7 +112,6 @@
             else { ctx.fillStyle = 'green'; ctx.fillRect(-this.car.w / 2, -this.car.h / 2, this.car.w, this.car.h); }
             ctx.restore();
 
-            // Engeller
             for (let i = this.obstacles.length - 1; i >= 0; i--) {
                 let obs = this.obstacles[i];
                 obs.y += this.speed * dt;
@@ -114,7 +119,6 @@
                 if (obsImg.complete) ctx.drawImage(obsImg, obs.x, obs.y, obs.w, obs.h);
                 else { ctx.fillStyle = 'red'; ctx.fillRect(obs.x, obs.y, obs.w, obs.h); }
 
-                // Çarpışma kutusu güncellendi
                 if (obs.y > this.car.y - 100 && obs.y < this.car.y + 100 && Math.abs(obs.x - this.car.x) < 70) {
                     this.gameOver();
                 }
@@ -127,6 +131,9 @@
 
         gameOver() {
             this.active = false;
+            // Müziği durdur
+            bgMusic.pause();
+            
             if (this.score > this.highScore) {
                 this.highScore = Math.floor(this.score);
                 localStorage.setItem('rekor', this.highScore);
