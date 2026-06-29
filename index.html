@@ -3,18 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2D Araba Oyunu - Gelişmiş</title>
+    <title>2D Araba Oyunu - Akıcı Versiyon</title>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background: #222; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #222; font-family: sans-serif; touch-action: none; }
         #gameContainer { position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
         canvas { display: block; background: #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        
         #uiLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        .hud { position: absolute; top: 20px; left: 20px; color: white; font-size: 24px; font-weight: bold; text-shadow: 2px 2px 4px black; }
-        
-        #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background: rgba(0,0,0,0.8); padding: 30px; border-radius: 15px; color: white; display: block; pointer-events: auto; }
-        button { padding: 15px 30px; font-size: 20px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 8px; margin-top: 10px; transition: 0.3s; }
-        button:hover { background: #45a049; }
+        .hud { position: absolute; top: 20px; left: 20px; color: white; font-size: 20px; font-weight: bold; text-shadow: 2px 2px 4px black; }
+        #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background: rgba(0,0,0,0.85); padding: 30px; border-radius: 15px; color: white; display: block; pointer-events: auto; }
+        button { padding: 15px 30px; font-size: 20px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 8px; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -23,7 +20,6 @@
             <div class="hud" id="scoreBoard">Skor: 0 | Rekor: 0</div>
             <div id="menu">
                 <h1 id="menuTitle">Araba Yarışı</h1>
-                <p id="menuText">Kendi yesil.png ve engel.png dosyalarını kullanır.</p>
                 <button id="actionBtn" onclick="game.start()">Başla</button>
             </div>
         </div>
@@ -37,7 +33,6 @@
     const menu = document.getElementById('menu');
     const actionBtn = document.getElementById('actionBtn');
 
-    // Resimlerin yüklenmesini bekleyelim
     const carImg = new Image(); carImg.src = 'yesil.png';
     const obsImg = new Image(); obsImg.src = 'engel.png';
     
@@ -45,30 +40,89 @@
         active: false,
         score: 0,
         highScore: localStorage.getItem('rekor') || 0,
-        speed: 5,
-        car: { x: 0, y: 0, w: 50, h: 80 },
-        obstacles: [],
+        speed: 300,
         laneOffset: 0,
+        // Boyutlar orijinalin 2.5 katı olarak güncellendi (50*2.5=125, 80*2.5=200)
+        car: { x: 0, y: 0, w: 125, h: 200 }, 
+        obstacles: [],
+        lastTime: 0,
+        spawnTimer: 0,
 
         init() {
             canvas.width = Math.min(window.innerWidth, 500);
             canvas.height = window.innerHeight;
-            this.car.x = canvas.width / 2 - 25;
-            this.car.y = canvas.height - 150;
-            this.updateHUD();
+            this.car.x = canvas.width / 2 - (this.car.w / 2);
+            this.car.y = canvas.height - 300;
         },
 
         start() {
             this.score = 0;
-            this.speed = 5;
+            this.speed = 300;
             this.obstacles = [];
             this.active = true;
             menu.style.display = 'none';
-            requestAnimationFrame(this.loop.bind(this));
+            this.lastTime = performance.now();
+            requestAnimationFrame((t) => this.loop(t));
         },
 
-        updateHUD() {
+        drawRoad(dt) {
+            ctx.fillStyle = '#333';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 10;
+            ctx.setLineDash([40, 40]);
+            this.laneOffset += this.speed * dt;
+            ctx.lineDashOffset = -this.laneOffset;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+        },
+
+        loop(timestamp) {
+            if (!this.active) return;
+
+            const dt = (timestamp - this.lastTime) / 1000;
+            this.lastTime = timestamp;
+
+            this.score += dt * 5;
+            this.speed += dt * 10;
+            this.spawnTimer += dt;
+
+            if (this.spawnTimer > 1.2) {
+                // Engel boyutu araba ile uyumlu hale getirildi (125x125)
+                this.obstacles.push({ x: Math.random() * (canvas.width - 125), y: -200, w: 125, h: 125 });
+                this.spawnTimer = 0;
+            }
+
+            this.drawRoad(dt);
+
+            // Araba
+            ctx.save();
+            ctx.translate(this.car.x + this.car.w / 2, this.car.y + this.car.h / 2);
+            ctx.rotate(Math.PI);
+            if (carImg.complete) ctx.drawImage(carImg, -this.car.w / 2, -this.car.h / 2, this.car.w, this.car.h);
+            else { ctx.fillStyle = 'green'; ctx.fillRect(-this.car.w / 2, -this.car.h / 2, this.car.w, this.car.h); }
+            ctx.restore();
+
+            // Engeller
+            for (let i = this.obstacles.length - 1; i >= 0; i--) {
+                let obs = this.obstacles[i];
+                obs.y += this.speed * dt;
+
+                if (obsImg.complete) ctx.drawImage(obsImg, obs.x, obs.y, obs.w, obs.h);
+                else { ctx.fillStyle = 'red'; ctx.fillRect(obs.x, obs.y, obs.w, obs.h); }
+
+                // Çarpışma kutusu güncellendi
+                if (obs.y > this.car.y - 100 && obs.y < this.car.y + 100 && Math.abs(obs.x - this.car.x) < 70) {
+                    this.gameOver();
+                }
+                if (obs.y > canvas.height) this.obstacles.splice(i, 1);
+            }
+
             scoreBoard.innerText = `Skor: ${Math.floor(this.score)} | Rekor: ${this.highScore}`;
+            requestAnimationFrame((t) => this.loop(t));
         },
 
         gameOver() {
@@ -80,77 +134,6 @@
             menu.style.display = 'block';
             document.getElementById('menuTitle').innerText = "Oyun Bitti!";
             actionBtn.innerText = "Yeniden Başla";
-            this.updateHUD();
-        },
-
-        drawRoad() {
-            ctx.fillStyle = '#333';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 5;
-            ctx.setLineDash([20, 20]);
-            ctx.lineDashOffset = -this.laneOffset;
-            ctx.beginPath();
-            ctx.moveTo(canvas.width / 2, 0);
-            ctx.lineTo(canvas.width / 2, canvas.height);
-            ctx.stroke();
-            this.laneOffset += this.speed;
-        },
-
-        loop() {
-            if (!this.active) return;
-            
-            this.score += 0.05;
-            this.speed += 0.001; 
-            this.updateHUD();
-
-            if (Math.random() < 0.03) {
-                this.obstacles.push({
-                    x: Math.random() * (canvas.width - 50),
-                    y: -100,
-                    w: 50,
-                    h: 50
-                });
-            }
-
-            this.drawRoad();
-
-            // Araba (yesil.png) 180 derece döndürülerek çizilir
-            ctx.save();
-            ctx.translate(this.car.x + this.car.w / 2, this.car.y + this.car.h / 2);
-            ctx.rotate(Math.PI);
-            if (carImg.complete) {
-                ctx.drawImage(carImg, -this.car.w / 2, -this.car.h / 2, this.car.w, this.car.h);
-            } else {
-                ctx.fillStyle = 'green';
-                ctx.fillRect(-this.car.w / 2, -this.car.h / 2, this.car.w, this.car.h);
-            }
-            ctx.restore();
-
-            // Engeller (engel.png)
-            for (let i = this.obstacles.length - 1; i >= 0; i--) {
-                let obs = this.obstacles[i];
-                obs.y += this.speed;
-
-                if (obsImg.complete) {
-                    ctx.drawImage(obsImg, obs.x, obs.y, obs.w, obs.h);
-                } else {
-                    ctx.fillStyle = 'red';
-                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
-                }
-
-                if (obs.y > this.car.y - this.car.h && 
-                    obs.y < this.car.y + this.car.h &&
-                    obs.x > this.car.x - this.car.w / 2 && 
-                    obs.x < this.car.x + this.car.w / 2) {
-                    this.gameOver();
-                }
-
-                if (obs.y > canvas.height) this.obstacles.splice(i, 1);
-            }
-
-            requestAnimationFrame(this.loop.bind(this));
         }
     };
 
@@ -159,13 +142,10 @@
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const rect = canvas.getBoundingClientRect();
         game.car.x = (clientX - rect.left) - game.car.w / 2;
-        if (game.car.x < 0) game.car.x = 0;
-        if (game.car.x > canvas.width - game.car.w) game.car.x = canvas.width - game.car.w;
     };
 
     window.addEventListener('mousemove', move);
     window.addEventListener('touchmove', move, { passive: false });
-    
     game.init();
     window.addEventListener('resize', () => game.init());
 </script>
